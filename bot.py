@@ -6,12 +6,12 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # Start command handler
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Hello! I am ClassMate, your AI Study Helper. How can I assist you today?")
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text("Hello! I am ClassMate, your AI Study Helper. How can I assist you today?")
 
 # Echo message handler
-def echo(update: Update, context: CallbackContext):
-    update.message.reply_text(f"You said: {update.message.text}")
+async def echo(update: Update, context: CallbackContext):
+    await update.message.reply_text(f"You said: {update.message.text}")
 
 # Main function to start the bot
 def main():
