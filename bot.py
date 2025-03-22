@@ -16,9 +16,11 @@ ROOT_FOLDER_ID = "1A1f_JVLh6yzL2YTYkj4sB67e6Y91l2PV"
 # ✅ Function to Fetch Google Drive Folder Contents
 def fetch_drive_contents(folder_id):
     URL = f"https://drive.google.com/drive/folders/{folder_id}"
+    print(f"🔍 Checking folder: {URL}")  # DEBUG: Check Folder URL
     response = requests.get(URL)
 
     if "No preview available" in response.text or "My Drive" in response.text:
+        print("❌ Folder is private or has no files.")  # DEBUG
         return None  # Invalid or private folder
 
     contents = []
@@ -28,6 +30,7 @@ def fetch_drive_contents(folder_id):
     if start_index != -1 and end_index != -1:
         data = response.text[start_index:end_index].split("window['_DRIVE_ivd'] =")[-1].strip()[:-1]
         try:
+            print(f"✅ Raw Data Found: {data[:200]}...")  # DEBUG: First 200 chars
             items = eval(data)  # Parse raw drive data
             for item in items:
                 if isinstance(item, list) and len(item) > 3:
@@ -35,8 +38,11 @@ def fetch_drive_contents(folder_id):
                     file_name = item[2]
                     is_folder = item[3] == 1
                     contents.append({"id": file_id, "name": file_name, "is_folder": is_folder})
-        except Exception:
+        except Exception as e:
+            print(f"❌ Parsing Error: {e}")  # DEBUG: Error Message
             return None  # Error parsing Google Drive response
+    else:
+        print("❌ No data found in Drive response.")  # DEBUG
     return contents
 
 # ✅ Start Command Function
