@@ -1,27 +1,22 @@
 import logging
-import gspread
 import pandas as pd
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
 
 # 🔹 Telegram Bot Token
-TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# 🔹 Google Sheet URL
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1DcocDJTM9HqsIOWczypI_obnVtIHCqOsRFmca33sGA8/edit#gid=0"
+# 🔹 Google Sheet Public CSV Link
+SHEET_CSV_URL = os.getenv("GOOGLE_SHEET_CSV_URL")  # Public Google Sheet ka CSV Export URL
 
 # ✅ Logging Setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# ✅ Google Sheet se data fetch karne ka function
+# ✅ Google Sheet se data fetch karne ka function (API ke bina)
 def get_drive_structure():
     try:
-        gc = gspread.service_account()  # Google API Credentials required
-        sh = gc.open_by_url(SHEET_URL)
-        worksheet = sh.get_worksheet(0)
-        data = worksheet.get_all_records()
-        
-        df = pd.DataFrame(data)
+        df = pd.read_csv(SHEET_CSV_URL)  # ✅ Public Google Sheet se data fetch karo
         return df
     except Exception as e:
         print(f"❌ Error fetching Google Sheet data: {e}")
@@ -70,18 +65,18 @@ async def button_click(update: Update, context):
     
     await query.message.reply_text(f"📁 **{selected_folder}**\nChoose a subfolder:", reply_markup=reply_markup)
 
-# ✅ Bot Start Function (No asyncio.run() error!)
+# ✅ Bot Start Function
 def main():
-    app = Application.builder().token(TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
     # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("schoolbooks", schoolbooks))
     app.add_handler(CallbackQueryHandler(button_click))
 
-    # Start the bot
+    # ✅ Start the bot
     print("🚀 Bot is running...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling()
 
 if __name__ == '__main__':
     main()
