@@ -1,22 +1,27 @@
 import logging
 import pandas as pd
-import os
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
 # 🔹 Telegram Bot Token
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
 
-# 🔹 Google Sheet Public CSV Link
-SHEET_CSV_URL = os.getenv("GOOGLE_SHEET_CSV_URL")  # Public Google Sheet ka CSV Export URL
+# 🔹 Google Sheet ka CSV Export Link
+SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/1DcocDJTM9HqsIOWczypI_obnVtIHCqOsRFmca33sGA8/pub?output=csv"
 
 # ✅ Logging Setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# ✅ Google Sheet se data fetch karne ka function (API ke bina)
+# ✅ Google Sheet se data fetch karne ka function
 def get_drive_structure():
     try:
-        df = pd.read_csv(SHEET_CSV_URL)  # ✅ Public Google Sheet se data fetch karo
+        response = requests.get(SHEET_CSV_URL)
+        if response.status_code != 200:
+            print(f"❌ Error fetching Google Sheet: {response.status_code}")
+            return None
+        
+        df = pd.read_csv(pd.compat.StringIO(response.text))
         return df
     except Exception as e:
         print(f"❌ Error fetching Google Sheet data: {e}")
@@ -67,16 +72,16 @@ async def button_click(update: Update, context):
 
 # ✅ Bot Start Function
 def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = Application.builder().token(TOKEN).build()
 
     # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("schoolbooks", schoolbooks))
     app.add_handler(CallbackQueryHandler(button_click))
 
-    # ✅ Start the bot
+    # Start the bot
     print("🚀 Bot is running...")
-    app.run_polling()
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
     main()
