@@ -1,45 +1,78 @@
 import os
-import re
 import json
-import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext
 
 # ✅ BOT TOKEN Load Karo (Railway Environment Variable Se)
 TOKEN = os.getenv("BOT_TOKEN")
 
-# ✅ NCERT Google Drive Folder ID
-NCERT_FOLDER_ID = "1A1f_JVLh6yzL2YTYkj4sB67e6Y91l2PV"  # Aapke NCERT folder ka ID
-BASE_DRIVE_URL = "https://drive.google.com/drive/folders/"
-
 if not TOKEN:
     print("❌ ERROR: BOT_TOKEN is not set! Check your Railway environment variables.")
     exit(1)
 
-# ✅ Function to Fetch Google Drive Folder Contents
-def get_drive_folder_contents(folder_id):
-    url = f"https://www.googleapis.com/drive/v3/files?q='{folder_id}'+in+parents&key=AIzaSyXXXXX"
-    response = requests.get(url)
-    
-    if response.status_code == 200:
-        return response.json().get("files", [])
-    return []
+# ✅ NCERT Folder Structure (Manually Defined)
+NCERT_STRUCTURE = {
+    "id": "root",
+    "name": "NCERT Books",
+    "folders": [
+        {
+            "id": "class_5",
+            "name": "Class 5",
+            "folders": [
+                {
+                    "id": "maths",
+                    "name": "Maths",
+                    "files": [
+                        {"name": "Maths Part 1", "id": "1abc"},
+                        {"name": "Maths Part 2", "id": "2xyz"}
+                    ]
+                },
+                {
+                    "id": "science",
+                    "name": "Science",
+                    "files": [
+                        {"name": "Science Book", "id": "3lmn"}
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "class_6",
+            "name": "Class 6",
+            "folders": [],
+            "files": []
+        }
+    ],
+    "files": []
+}
 
-# ✅ Start Command Function
+# ✅ Welcome Message & Start Command
 async def start(update: Update, context: CallbackContext) -> None:
     welcome_message = (
-        "👋 **Welcome to ClassMate Bot!**\n"
-        "📚 Get NCERT & CBSE books easily!\n\n"
+        "👋 **Hello! I am your ClassMate, and my name is Lakhan.**\n\n"
         "💡 *Report Missing Info, Suggestions, or Bugs:*\n"
         "📧 Email: speedoworld1122@gmail.com\n"
         "📩 Instagram: @visionoflakhan\n\n"
         "🔽 **Select an option below:**"
     )
     
-    keyboard = [[InlineKeyboardButton("📚 NCERT Books", callback_data=f"open:{NCERT_FOLDER_ID}")]]
+    keyboard = [[InlineKeyboardButton("📚 NCERT Books", callback_data="open:root")]]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(welcome_message, reply_markup=reply_markup)
+
+# ✅ Function to Fetch Folders & Files
+def get_folder_contents(folder_id):
+    def find_folder(data, target_id):
+        if data["id"] == target_id:
+            return data
+        for subfolder in data.get("folders", []):
+            result = find_folder(subfolder, target_id)
+            if result:
+                return result
+        return None
+
+    return find_folder(NCERT_STRUCTURE, folder_id)
 
 # ✅ Folder Navigation Handler
 async def navigate_drive(update: Update, context: CallbackContext) -> None:
@@ -47,26 +80,26 @@ async def navigate_drive(update: Update, context: CallbackContext) -> None:
     await query.answer()
 
     _, folder_id = query.data.split(":")
-    files = get_drive_folder_contents(folder_id)
+    folder = get_folder_contents(folder_id)
 
-    if not files:
+    if not folder:
         await query.message.reply_text("❌ No files found in this folder.")
         return
 
     keyboard = []
-    for file in files:
-        if file["mimeType"] == "application/vnd.google-apps.folder":
-            keyboard.append([InlineKeyboardButton(f"📂 {file['name']}", callback_data=f"open:{file['id']}")])
-        else:
-            file_url = f"https://drive.google.com/file/d/{file['id']}/view"
-            keyboard.append([
-                InlineKeyboardButton(f"📄 {file['name']}", url=file_url)
-            ])
 
-    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"open:{NCERT_FOLDER_ID}")])
+    for subfolder in folder.get("folders", []):
+        keyboard.append([InlineKeyboardButton(f"📂 {subfolder['name']}", callback_data=f"open:{subfolder['id']}")])
+
+    for file in folder.get("files", []):
+        file_url = f"https://drive.google.com/file/d/{file['id']}/view"
+        keyboard.append([InlineKeyboardButton(f"📄 {file['name']}", url=file_url)])
+
+    if folder_id != "root":
+        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="open:root")])
+
     reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await query.message.reply_text("📂 **Choose a folder or file:**", reply_markup=reply_markup)
+    await query.message.reply_text(f"📂 **{folder['name']}**\nChoose a folder or file:", reply_markup=reply_markup)
 
 # ✅ Application Setup
 app = Application.builder().token(TOKEN).build()
