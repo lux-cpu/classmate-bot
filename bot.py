@@ -1,6 +1,7 @@
 import logging
 import pandas as pd
 import requests
+import io  # 👈 Yeh import zaroori hai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
@@ -21,7 +22,7 @@ def get_drive_structure():
             print(f"❌ Error fetching Google Sheet: {response.status_code}")
             return None
         
-        df = pd.read_csv(pd.compat.StringIO(response.text))
+        df = pd.read_csv(io.StringIO(response.text))  # ✅ Fix applied
         return df
     except Exception as e:
         print(f"❌ Error fetching Google Sheet data: {e}")
