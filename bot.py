@@ -1,99 +1,89 @@
-import os
-import requests
+import logging
+import gspread
+import pandas as pd
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
 
-# ✅ BOT TOKEN Load Karo (Railway Environment Variable Se)
-TOKEN = os.getenv("BOT_TOKEN")
+# 🔹 Telegram Bot Token
+TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
 
-if not TOKEN:
-    print("❌ ERROR: BOT_TOKEN is not set! Check your Railway environment variables.")
-    exit(1)
+# 🔹 Google Sheet URL (Yeh wahi sheet hai jo tumne banayi hai)
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1DcocDJTM9HqsIOWczypI_obnVtIHCqOsRFmca33sGA8/edit#gid=0"
 
-# ✅ Google Drive Folder ID (ClassMate-School-Books)
-ROOT_FOLDER_ID = "1A1f_JVLh6yzL2YTYkj4sB67e6Y91l2PV"
+# ✅ Logging Setup
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# ✅ Function to Fetch Google Drive Folder Contents
-def fetch_drive_contents(folder_id):
-    URL = f"https://drive.google.com/drive/folders/{folder_id}"
-    print(f"🔍 Checking folder: {URL}")  # DEBUG: Check Folder URL
-    response = requests.get(URL)
+# ✅ Google Sheet se data fetch karne ka function
+def get_drive_structure():
+    try:
+        gc = gspread.service_account()  # Agar API key nahi hai, toh ise hatao
+        sh = gc.open_by_url(SHEET_URL)
+        worksheet = sh.get_worksheet(0)
+        data = worksheet.get_all_records()
+        
+        df = pd.DataFrame(data)
+        return df
+    except Exception as e:
+        print(f"❌ Error fetching Google Sheet data: {e}")
+        return None
 
-    if "No preview available" in response.text or "My Drive" in response.text:
-        print("❌ Folder is private or has no files.")  # DEBUG
-        return None  # Invalid or private folder
+# ✅ `/start` Command
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("📚 Welcome to ClassMate Bot!\nUse /schoolbooks to get study materials.")
 
-    contents = []
-    start_index = response.text.find("window['_DRIVE_ivd'] =")
-    end_index = response.text.find("window['_DRIVE_ivd_list']", start_index)
-
-    if start_index != -1 and end_index != -1:
-        data = response.text[start_index:end_index].split("window['_DRIVE_ivd'] =")[-1].strip()[:-1]
-        try:
-            print(f"✅ Raw Data Found: {data[:200]}...")  # DEBUG: First 200 chars
-            items = eval(data)  # Parse raw drive data
-            for item in items:
-                if isinstance(item, list) and len(item) > 3:
-                    file_id = item[0]
-                    file_name = item[2]
-                    is_folder = item[3] == 1
-                    contents.append({"id": file_id, "name": file_name, "is_folder": is_folder})
-        except Exception as e:
-            print(f"❌ Parsing Error: {e}")  # DEBUG: Error Message
-            return None  # Error parsing Google Drive response
-    else:
-        print("❌ No data found in Drive response.")  # DEBUG
-    return contents
-
-# ✅ Start Command Function
-async def start(update: Update, context: CallbackContext) -> None:
-    welcome_message = (
-        "👋 **Hello! I am your ClassMate, and my name is Lakhan.**\n\n"
-        "💡 *Report Missing Info, Suggestions, or Bugs:*\n"
-        "📧 Email: speedoworld1122@gmail.com\n"
-        "📩 Instagram: @visionoflakhan\n\n"
-        "🔽 **Select an option below:**"
-    )
-
-    keyboard = [[InlineKeyboardButton("📚 NCERT & CBSE Books", callback_data=f"open:{ROOT_FOLDER_ID}")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(welcome_message, reply_markup=reply_markup)
-
-# ✅ Folder Navigation Handler
-async def navigate_drive(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    await query.answer()
-
-    folder_id = query.data.split(":")[1]
-    contents = fetch_drive_contents(folder_id)
-
-    if not contents:
-        await query.message.reply_text("❌ No files found or the folder is private.")
-        return
-
-    keyboard = []
+# ✅ `/schoolbooks` Command
+def schoolbooks(update: Update, context: CallbackContext):
+    df = get_drive_structure()
     
-    for item in contents:
-        if item["is_folder"]:
-            keyboard.append([InlineKeyboardButton(f"📂 {item['name']}", callback_data=f"open:{item['id']}")])
-        else:
-            file_url = f"https://drive.google.com/file/d/{item['id']}/view"
-            keyboard.append([InlineKeyboardButton(f"📄 {item['name']}", url=file_url)])
-
-    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"open:{ROOT_FOLDER_ID}")])
-
+    if df is None or df.empty:
+        update.message.reply_text("❌ No data found in Google Sheet!")
+        return
+    
+    # Sirf top-level folders dikhane ke liye unique names fetch karna
+    top_level_folders = df["Parent Folder Name"].unique()
+    
+    # Buttons banane ke liye options ready karo
+    keyboard = [[InlineKeyboardButton(name, callback_data=name)] for name in top_level_folders]
+    
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text(f"📂 **{contents[0]['name']}**\nChoose a folder or file:", reply_markup=reply_markup)
+    update.message.reply_text("📂 **Choose a Category:**", reply_markup=reply_markup)
 
-# ✅ Application Setup
-app = Application.builder().token(TOKEN).build()
+# ✅ Callback Handler for Folder Navigation
+def button_click(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    
+    df = get_drive_structure()
+    if df is None:
+        query.message.reply_text("❌ Error fetching data.")
+        return
+    
+    # User jo folder select karega uske andar kya hai woh dikhana
+    selected_folder = query.data
+    subfolders = df[df["Parent Folder Name"] == selected_folder]["Folder Name"].unique()
+    
+    if len(subfolders) == 0:
+        query.message.reply_text("📄 No subfolders found.")
+        return
+    
+    keyboard = [[InlineKeyboardButton(name, callback_data=name)] for name in subfolders]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    query.message.reply_text(f"📁 **{selected_folder}**\nChoose a subfolder:", reply_markup=reply_markup)
 
-# ✅ Commands & Handlers Add Karo
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CallbackQueryHandler(navigate_drive, pattern="^open:"))
+# ✅ Bot Start Function
+def main():
+    updater = Updater(TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
 
-# ✅ Bot Start Karo (Polling Mode)
-if __name__ == "__main__":
-    print("🚀 Bot is starting...")
-    app.run_polling()
+    # Commands
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("schoolbooks", schoolbooks))
+    dispatcher.add_handler(CallbackQueryHandler(button_click))
+
+    # Start the bot
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
