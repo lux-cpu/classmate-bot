@@ -16,7 +16,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 # ✅ Google Sheet se data fetch karne ka function
 def get_drive_structure():
     try:
-        gc = gspread.service_account()  # API key ke bina mat chalao
+        gc = gspread.service_account()  # Google API Credentials required
         sh = gc.open_by_url(SHEET_URL)
         worksheet = sh.get_worksheet(0)
         data = worksheet.get_all_records()
@@ -70,7 +70,7 @@ async def button_click(update: Update, context):
     
     await query.message.reply_text(f"📁 **{selected_folder}**\nChoose a subfolder:", reply_markup=reply_markup)
 
-# ✅ Bot Start Function
+# ✅ Bot Start Function (No asyncio.run() error!)
 def main():
     app = Application.builder().token(TOKEN).build()
 
@@ -81,7 +81,7 @@ def main():
 
     # Start the bot
     print("🚀 Bot is running...")
-    app.run_polling()
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
     main()
