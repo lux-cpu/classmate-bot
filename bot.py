@@ -1,5 +1,5 @@
 import os
-import json
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext
 
@@ -10,43 +10,36 @@ if not TOKEN:
     print("❌ ERROR: BOT_TOKEN is not set! Check your Railway environment variables.")
     exit(1)
 
-# ✅ NCERT Folder Structure (Manually Defined)
-NCERT_STRUCTURE = {
-    "id": "root",
-    "name": "NCERT Books",
-    "folders": [
-        {
-            "id": "class_5",
-            "name": "Class 5",
-            "folders": [
-                {
-                    "id": "maths",
-                    "name": "Maths",
-                    "files": [
-                        {"name": "Maths Part 1", "id": "1abc"},
-                        {"name": "Maths Part 2", "id": "2xyz"}
-                    ]
-                },
-                {
-                    "id": "science",
-                    "name": "Science",
-                    "files": [
-                        {"name": "Science Book", "id": "3lmn"}
-                    ]
-                }
-            ]
-        },
-        {
-            "id": "class_6",
-            "name": "Class 6",
-            "folders": [],
-            "files": []
-        }
-    ],
-    "files": []
-}
+# ✅ Google Drive Folder ID (ClassMate-School-Books)
+ROOT_FOLDER_ID = "1A1f_JVLh6yzL2YTYkj4sB67e6Y91l2PV"
 
-# ✅ Welcome Message & Start Command
+# ✅ Function to Fetch Google Drive Folder Contents
+def fetch_drive_contents(folder_id):
+    URL = f"https://drive.google.com/drive/folders/{folder_id}"
+    response = requests.get(URL)
+
+    if "No preview available" in response.text or "My Drive" in response.text:
+        return None  # Invalid or private folder
+
+    contents = []
+    start_index = response.text.find("window['_DRIVE_ivd'] =")
+    end_index = response.text.find("window['_DRIVE_ivd_list']", start_index)
+
+    if start_index != -1 and end_index != -1:
+        data = response.text[start_index:end_index].split("window['_DRIVE_ivd'] =")[-1].strip()[:-1]
+        try:
+            items = eval(data)  # Parse raw drive data
+            for item in items:
+                if isinstance(item, list) and len(item) > 3:
+                    file_id = item[0]
+                    file_name = item[2]
+                    is_folder = item[3] == 1
+                    contents.append({"id": file_id, "name": file_name, "is_folder": is_folder})
+        except Exception:
+            return None  # Error parsing Google Drive response
+    return contents
+
+# ✅ Start Command Function
 async def start(update: Update, context: CallbackContext) -> None:
     welcome_message = (
         "👋 **Hello! I am your ClassMate, and my name is Lakhan.**\n\n"
@@ -55,51 +48,37 @@ async def start(update: Update, context: CallbackContext) -> None:
         "📩 Instagram: @visionoflakhan\n\n"
         "🔽 **Select an option below:**"
     )
-    
-    keyboard = [[InlineKeyboardButton("📚 NCERT Books", callback_data="open:root")]]
-    
+
+    keyboard = [[InlineKeyboardButton("📚 NCERT & CBSE Books", callback_data=f"open:{ROOT_FOLDER_ID}")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
+
     await update.message.reply_text(welcome_message, reply_markup=reply_markup)
-
-# ✅ Function to Fetch Folders & Files
-def get_folder_contents(folder_id):
-    def find_folder(data, target_id):
-        if data["id"] == target_id:
-            return data
-        for subfolder in data.get("folders", []):
-            result = find_folder(subfolder, target_id)
-            if result:
-                return result
-        return None
-
-    return find_folder(NCERT_STRUCTURE, folder_id)
 
 # ✅ Folder Navigation Handler
 async def navigate_drive(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     await query.answer()
 
-    _, folder_id = query.data.split(":")
-    folder = get_folder_contents(folder_id)
+    folder_id = query.data.split(":")[1]
+    contents = fetch_drive_contents(folder_id)
 
-    if not folder:
-        await query.message.reply_text("❌ No files found in this folder.")
+    if not contents:
+        await query.message.reply_text("❌ No files found or the folder is private.")
         return
 
     keyboard = []
+    
+    for item in contents:
+        if item["is_folder"]:
+            keyboard.append([InlineKeyboardButton(f"📂 {item['name']}", callback_data=f"open:{item['id']}")])
+        else:
+            file_url = f"https://drive.google.com/file/d/{item['id']}/view"
+            keyboard.append([InlineKeyboardButton(f"📄 {item['name']}", url=file_url)])
 
-    for subfolder in folder.get("folders", []):
-        keyboard.append([InlineKeyboardButton(f"📂 {subfolder['name']}", callback_data=f"open:{subfolder['id']}")])
-
-    for file in folder.get("files", []):
-        file_url = f"https://drive.google.com/file/d/{file['id']}/view"
-        keyboard.append([InlineKeyboardButton(f"📄 {file['name']}", url=file_url)])
-
-    if folder_id != "root":
-        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="open:root")])
+    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"open:{ROOT_FOLDER_ID}")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text(f"📂 **{folder['name']}**\nChoose a folder or file:", reply_markup=reply_markup)
+    await query.message.reply_text(f"📂 **{contents[0]['name']}**\nChoose a folder or file:", reply_markup=reply_markup)
 
 # ✅ Application Setup
 app = Application.builder().token(TOKEN).build()
