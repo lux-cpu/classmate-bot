@@ -71,7 +71,7 @@ async def button_click(update: Update, context):
     await query.message.reply_text(f"📁 **{selected_folder}**\nChoose a subfolder:", reply_markup=reply_markup)
 
 # ✅ Bot Start Function
-async def main():
+def main():
     app = Application.builder().token(TOKEN).build()
 
     # Commands
@@ -80,8 +80,8 @@ async def main():
     app.add_handler(CallbackQueryHandler(button_click))
 
     # Start the bot
-    await app.run_polling()
+    print("🚀 Bot is running...")
+    app.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    main()
