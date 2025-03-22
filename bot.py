@@ -1,7 +1,8 @@
 import logging
 import pandas as pd
 import requests
-import io  # 👈 Yeh import zaroori hai
+import io  # ✅ Correct import
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
@@ -9,7 +10,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 TOKEN = "7759339678:AAEwkLNH-OLxsGt4LGCNVuHbd6DqFdnIUs8"
 
 # 🔹 Google Sheet ka CSV Export Link
-SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/1DcocDJTM9HqsIOWczypI_obnVtIHCqOsRFmca33sGA8/pub?output=csv"
+SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1DcocDJTM9HqsIOWczypI_obnVtIHCqOsRFmca33sGA8/gviz/tq?tqx=out:csv"
 
 # ✅ Logging Setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -22,7 +23,7 @@ def get_drive_structure():
             print(f"❌ Error fetching Google Sheet: {response.status_code}")
             return None
         
-        df = pd.read_csv(io.StringIO(response.text))  # ✅ Fix applied
+        df = pd.read_csv(io.StringIO(response.text))  # ✅ Corrected StringIO usage
         return df
     except Exception as e:
         print(f"❌ Error fetching Google Sheet data: {e}")
@@ -41,7 +42,7 @@ async def schoolbooks(update: Update, context):
         return
     
     # Sirf top-level folders dikhane ke liye unique names fetch karna
-    top_level_folders = df["Parent Folder Name"].unique()
+    top_level_folders = df["Parent Folder Name"].dropna().unique()
     
     # Buttons banane ke liye options ready karo
     keyboard = [[InlineKeyboardButton(name, callback_data=name)] for name in top_level_folders]
@@ -60,7 +61,7 @@ async def button_click(update: Update, context):
         return
     
     selected_folder = query.data
-    subfolders = df[df["Parent Folder Name"] == selected_folder]["Folder Name"].unique()
+    subfolders = df[df["Parent Folder Name"] == selected_folder]["Folder Name"].dropna().unique()
     
     if len(subfolders) == 0:
         await query.message.reply_text("📄 No subfolders found.")
