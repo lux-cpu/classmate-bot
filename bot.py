@@ -1,4 +1,5 @@
 import logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 import pandas as pd
 import requests
 import io  # ✅ Correct import
