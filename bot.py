@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 import requests
-import io
+import io  # ✅ Correct import
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
@@ -23,7 +23,7 @@ def get_drive_structure():
             print(f"❌ Error fetching Google Sheet: {response.status_code}")
             return None
         
-        df = pd.read_csv(io.StringIO(response.text))  
+        df = pd.read_csv(io.StringIO(response.text))  # ✅ Corrected StringIO usage
         return df
     except Exception as e:
         print(f"❌ Error fetching Google Sheet data: {e}")
@@ -50,7 +50,7 @@ async def schoolbooks(update: Update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("📂 **Choose a Category:**", reply_markup=reply_markup)
 
-# ✅ Callback Handler for Folder & File Navigation
+# ✅ Callback Handler for Folder Navigation
 async def button_click(update: Update, context):
     query = update.callback_query
     await query.answer()
@@ -62,32 +62,36 @@ async def button_click(update: Update, context):
     
     selected_folder = query.data
 
-    # 🔹 **Find subfolders inside selected folder**
+    # ✅ **Check if there are subfolders**
     subfolders = df[df["Parent Folder Name"] == selected_folder]["Path"].dropna().unique()
-
-    # 🔹 **Find files inside selected folder**
-    files = df[df["Parent Folder Name"] == selected_folder][["File Name", "Path"]].dropna().values.tolist()
+    
+    # ✅ **Check if there are files in this folder**
+    files_in_folder = df[df["Parent Folder Name"] == selected_folder][["File Name", "Path"]].dropna()
     
     keyboard = []
     
-    # 🔹 **Add subfolder buttons**
-    for subfolder in subfolders:
-        keyboard.append([InlineKeyboardButton(subfolder, callback_data=subfolder)])
+    # 📁 **Agar subfolders hain, toh unko dikhaye**
+    if len(subfolders) > 0:
+        keyboard.extend([[InlineKeyboardButton(name, callback_data=name)] for name in subfolders])
     
-    # 🔹 **Add file download/view buttons**
-    for file_name, file_path in files:
-        file_link = f"https://drive.google.com/uc?id={file_path.split('/')[-1]}"
-        keyboard.append([
-            InlineKeyboardButton(f"📥 Download {file_name}", url=file_link)
-        ])
-    
-    # 🔹 **If no folders or files, show message**
-    if not keyboard:
-        await query.message.reply_text("📄 No files or subfolders found.")
-        return
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text(f"📁 **{selected_folder}**\nChoose an option:", reply_markup=reply_markup)
+    # 📄 **Agar files hain, toh unke liye Download/View buttons dikhaye**
+    if not files_in_folder.empty:
+        for _, row in files_in_folder.iterrows():
+            file_name = row["File Name"]
+            file_link = row["Path"]  # Google Sheet me File ka link hona chahiye
+
+            file_buttons = [
+                InlineKeyboardButton(f"📥 Download {file_name}", url=file_link),
+                InlineKeyboardButton(f"🌐 View Online", url=file_link),
+            ]
+            keyboard.append(file_buttons)
+
+    # ✅ **Agar subfolders ya files mil gaye, toh buttons show karo**
+    if keyboard:
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.reply_text(f"📂 **{selected_folder}**\nChoose an option:", reply_markup=reply_markup)
+    else:
+        await query.message.reply_text("📄 No subfolders or files found.")
 
 # ✅ Bot Start Function
 def main():
