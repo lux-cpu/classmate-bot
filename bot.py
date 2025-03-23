@@ -10,7 +10,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 TOKEN = "7759339678:AAEwkLNH-OLxsGt4LGCNVuHbd6DqFdnIUs8"
 
 # 🔹 Google Sheet ka CSV Export Link
-SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTwbTGY5oFNUA1lRbBW4ZtygAPNZlmgpigkuiyHHM2crdGspJuUB9gcB0TPXHFrJ0PjAZY58y7YBgFQ/pub?output=csv"
+SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTwbTGY5oFNUA1lRbBW4ZtygAPNZlmgpigkuiyHHM2crdGspJuUB9gcB0TPXHFrJ0PjAZY58y7YBgFQ/pubhtml"
 
 # ✅ Logging Setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
