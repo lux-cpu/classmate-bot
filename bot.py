@@ -61,16 +61,30 @@ async def button_click(update: Update, context):
         return
     
     selected_folder = query.data
-    subfolders = df[df["Parent Folder Name"] == selected_folder]["Folder Name"].dropna().unique()
+
+    # ✅ Check if the selected folder has subfolders
+    subfolders = df[df["Parent Folder Name"] == selected_folder]["Parent Folder Name"].dropna().unique()
     
-    if len(subfolders) == 0:
-        await query.message.reply_text("📄 No subfolders found.")
+    if len(subfolders) > 0:
+        keyboard = [[InlineKeyboardButton(name, callback_data=name)] for name in subfolders]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.reply_text(f"📁 **{selected_folder}**\nChoose a subfolder:", reply_markup=reply_markup)
         return
     
-    keyboard = [[InlineKeyboardButton(name, callback_data=name)] for name in subfolders]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # ✅ If no subfolders, show file links
+    files = df[df["Parent Folder Name"] == selected_folder][["File Name", "Path"]].dropna()
     
-    await query.message.reply_text(f"📁 **{selected_folder}**\nChoose a subfolder:", reply_markup=reply_markup)
+    if files.empty:
+        await query.message.reply_text("📄 No files found.")
+        return
+    
+    message = f"📂 **Files in {selected_folder}:**\n\n"
+    for _, row in files.iterrows():
+        file_name = row["File Name"]
+        file_link = row["Path"]
+        message += f"📄 [{file_name}]({file_link})\n"
+    
+    await query.message.reply_text(message, parse_mode="Markdown", disable_web_page_preview=True)
 
 # ✅ Bot Start Function
 def main():
