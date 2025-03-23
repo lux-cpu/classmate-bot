@@ -7,7 +7,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
 # 🔹 Telegram Bot Token
-TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+TOKEN = "7759339678:AAEwkLNH-OLxsGt4LGCNVuHbd6DqFdnIUs8"
 
 # 🔹 Google Sheet ka CSV Export Link
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTwbTGY5oFNUA1lRbBW4ZtygAPNZlmgpigkuiyHHM2crdGspJuUB9gcB0TPXHFrJ0PjAZY58y7YBgFQ/pub?output=csv"
